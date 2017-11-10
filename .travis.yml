@@ -1,0 +1,65 @@
+language: scala
+
+scala:
+  - 2.10.6
+  - 2.11.12
+  - 2.12.3
+
+jdk:
+  - oraclejdk8
+
+addons:
+  postgresql: "9.4"
+
+sudo: false
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/launchers
+    - $HOME/.sbt/boot
+
+before_script:
+  - rm project/sbt-pgp.sbt
+  - rm project/sbt-updates.sbt
+  - psql -c "CREATE ROLE sa WITH SUPERUSER LOGIN PASSWORD 'sa';" -U postgres
+  - psql -c "CREATE DATABASE scalikejdbc;" -U postgres
+  - mysql -e 'GRANT ALL ON *.* TO sa@"localhost"IDENTIFIED BY "sa";FLUSH PRIVILEGES;' -uroot
+  - mysql -e "CREATE DATABASE scalikejdbc;" -usa -psa
+  - mysql -e "ALTER DATABASE scalikejdbc CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" -usa -psa
+  - bash -x ./travis_before.sh
+
+script:
+  - git add . --all
+  - travis_retry ./travis.sh
+
+before_cache:
+  - find $HOME/.sbt -name "*.lock" | xargs rm
+  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+  - find $HOME/.ivy2/cache -name "*SNAPSHOT*" | xargs rm -rf
+
+env:
+  matrix:
+    - SCALIKEJDBC_DATABASE="mysql"
+    - SCALIKEJDBC_DATABASE="postgresql"
+
+matrix:
+  include:
+    - scala: "scripted-test"
+      env: SCALIKEJDBC_DATABASE="mysql" SBT_1_BUILD=true
+      script:
+      # - sbt '++ 2.12.3' root211/publishLocal '++ 2.11.12' root211/publishLocal '++ 2.10.6' publishLocal
+      # - find ./scalikejdbc-mapper-generator/src/sbt-test/ -name build.properties | xargs rm
+      - sbt '++ 2.12.3' "project mapper-generator" "^^ 1.0.2" compile # scripted
+    - scala: scripted-test
+      env: SCALIKEJDBC_DATABASE="mysql"
+    - scala: scripted-test
+      env: SCALIKEJDBC_DATABASE="postgresql"
+    - scala: scripted-test
+      env: SCALIKEJDBC_DATABASE="h2"
+    - scala: 2.12.3
+      env: SCALIKEJDBC_DATABASE="h2"
+    - scala: 2.12.3
+      env: SCALIKEJDBC_DATABASE="hsqldb"
+    - scala: 2.13.0-M2
+      env: SCALIKEJDBC_DATABASE="mysql"
