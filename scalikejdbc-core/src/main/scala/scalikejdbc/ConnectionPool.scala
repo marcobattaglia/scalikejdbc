@@ -217,6 +217,7 @@ object ConnectionPool extends LogSupport {
     if (GlobalSettings.loggingConnections) {
       log.debug("Registered singleton connection pool : " + get().toString())
     }
+    log.debug("Registered singleton connection pool : " + get().toString())
   }
 
   /**
